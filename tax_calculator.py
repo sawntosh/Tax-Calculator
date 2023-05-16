@@ -1,69 +1,93 @@
-def calculate_tax(income, marital_status):
-    if marital_status == "unmarried":
-        tax_slabs = [
-            (500000, 0.01),
-            (700000, 0.1),
-            (1000000, 0.2),
-            (2000000, 0.3),
-            (float('inf'), 0.36)
-        ]
-    elif marital_status == "married":
-        tax_slabs = [
-            (600000, 0.01),
-            (800000, 0.1),
-            (1100000, 0.2),
-            (2000000, 0.3),
-            (float('inf'), 0.36)
-            (2000000, 0.3),
-        ]
+def calculateIncome(salary, salaryType, festival=0, allowance=0, others=0):
+    festival = 0 if festival is None else festival
+    allowance = 0 if allowance is None else allowance
+    others = 0 if others is None else others
+    if salaryType.lower() == "monthly":
+        return (salary + allowance + others) * 12 + festival
+    else:
+        return salary + festival + allowance + others
 
-    tax_amount = 0
-    remaining_income = income
 
-    for slab in tax_slabs:
-        taxable_amount, tax_rate = slab
-        if remaining_income <= 0:
-            break
-        if remaining_income <= taxable_amount:
-            tax_amount += remaining_income * tax_rate
-            break
-        else:
-            tax_amount += taxable_amount * tax_rate
-            remaining_income -= taxable_amount
+def calculateDeduction(income, pf=0, cit=0, ssf=0, li=0, mi=0):
+    pf = 0 if pf is None else pf
+    cit = 0 if cit is None else cit
+    ssf = 0 if ssf is None else ssf
+    li = 0 if li is None else li
+    mi = 0 if mi is None else mi
+    if pf != 0 and ssf != 0:
+        raise ValueError("You can't contribute to both Provident Fund and Social Security Fund.")
+    if pf > (income * 20 / 100):
+        raise ValueError("Provident Fund must not be greater than 20% of total income.")
+    if cit > 300000:
+        raise ValueError("Contribution must not be greater than 300000 per year.")
+    li = 40000 if li > 40000 else li
+    mi = 20000 if mi > 20000 else mi
+    return pf + cit + ssf + li + mi
 
-    return tax_amount
 
-def calculate_payroll(salary, yearly_bonus, allowance, other_income, marital_status):
-    yearly_salary = salary * 12
-    yearly_income = yearly_salary + yearly_bonus + (allowance * 12) + (other_income * 12)
-    yearly_taxable_income = yearly_income
+def calculateTax(status, income, deduction):
+    taxSlab = [[500000, 200000, 300000, 1000000, float('inf')], [600000, 200000, 300000, 900000, float('inf')]]
+    taxRate = [.01, .10, .20, .30, .36]
+    taxAmount = 0
+    slabTax = 0
+    taxableAmount = income - deduction
+    print("\nNet Taxable Amount: ", taxableAmount)
+    married = 1 if status.lower() == "married" else 0
+    index = 0
+    print(f'slab,   slabAmount, \ttaxRatee, \tslabTax')
+    while taxableAmount > 0:
+        taxSlabb = taxSlab[married][index]
+        taxRatee = taxRate[index]
+        slabAmount = taxSlabb if taxableAmount >= taxSlabb else taxableAmount
 
-    pf_contribution = salary * 0.1
-    cict_contribution = 0 
-    ssf_contribution = salary * 0.05
-    life_insurance = 0  
+        slabTax = slabAmount * taxRatee
+        taxAmount = taxAmount + slabTax
 
-    yearly_deductions = pf_contribution * 12 + cict_contribution * 12 + ssf_contribution * 12 + life_insurance * 12
-    yearly_taxable_income -= yearly_deductions
+        print(f'slab {index+1}, {slabAmount},\t \t{taxRatee}, \t\t {slabTax}')
+        taxableAmount = taxableAmount - slabAmount
+        index += 1
+    return taxAmount
 
-    tax = calculate_tax(yearly_taxable_income, marital_status)
-    net_payable_tax = tax
-    annual_gross_salary = yearly_income
-    taxable_income = yearly_taxable_income
+def main(tax_info):
+    salary = tax_info.get('basic_salary')
+    status = tax_info.get('marital_status')
+    salaryType = tax_info.get('salary_type')
+    festival = tax_info.get('additional', {}).get('festival', 0)
+    allowance = tax_info.get('additional', {}).get('allowance', 0)
+    others = tax_info.get('additional', {}).get('others', 0)
 
-    return annual_gross_salary, taxable_income, net_payable_tax
+    income = calculateIncome(salary, salaryType, festival, allowance, others)
+    print("\nIncome:", income)
 
-salary = 100000
-yearly_bonus = 0
-allowance = 0
-other_income = 0
-marital_status = "unmarried"
+    pf = tax_info.get('deduction', {}).get('pf', 0)
+    cit = tax_info.get('deduction', {}).get('cit', 0)
+    ssf = tax_info.get('deduction', {}).get('ssf', 0)
+    li = tax_info.get('deduction', {}).get('li', 0)
+    mi = tax_info.get('deduction', {}).get('mi', 0)
+    deduction = calculateDeduction(income, pf, cit, ssf, li, mi)
+    print("\nDeduction: ", deduction)
 
-annual_gross_salary, taxable_income, net_payable_tax = calculate_payroll(
-    salary, yearly_bonus, allowance, other_income, marital_status
-)
+    tax = calculateTax(status, income, deduction)
+    print("\nNet Tax Liability (yearly):", tax)
 
-print("Tax Calculation")
-print(f"Annual Gross Salary: {annual_gross_salary}")
-print(f"Taxable Income: {taxable_income}")
-print(f"Net Payable Tax: {net_payable_tax}")
+
+tax_info = {
+    'basic_salary': 50000,
+    'marital_status': 'married',
+    'salary_type': 'monthly',
+    'additional': {
+        'festival': 100000,
+        'allowance': 50000,
+        'others': 50000,
+    },
+
+    'deduction': {
+        'pf': 10000,
+        'cit': 10000,
+        'ssf': None,
+        'li': 10000,
+        'mi': 10000 
+    }
+}
+
+main(tax_info)
